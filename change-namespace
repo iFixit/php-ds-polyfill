@@ -1,0 +1,39 @@
+#!/usr/bin/env -S ruby -i
+
+# change-namespace FROM_NAMESPACE TO_NAMESPACE
+#
+# For each path in the arguments, replace FROM_NAMESPACE with TO_NAMESPACE in
+# place. For example:
+#
+#   ./change-namespace -f Ds -t iFixit\\Ds $(find -name '*.php')
+#
+#   OR
+#
+#   find -name '*.php' | xargs ./change-namespace -f iFixit\\Ds -t Ds
+
+require 'optparse'
+
+Options = Struct.new(:from_ns, :to_ns)
+
+def main
+  opts = Options.new
+  OptionParser.new do |op|
+    op.on('-fFROM_NS', '--from=FROM_NS') do |from_ns|
+      opts.from_ns = from_ns
+    end
+    op.on('tTO_NS', '--to=TO_NS') do |to_ns|
+      opts.to_ns = to_ns
+    end
+  end.parse!
+
+  ARGF.each_line do |line|
+    puts change_namespace(line, opts)
+  end
+end
+
+def change_namespace(line, opts)
+  pat = /(?<=^use |^namespace |\\)#{Regexp.quote(opts.from_ns)}(?=\\|;)/
+  line.sub(pat, opts.to_ns)
+end
+
+main
