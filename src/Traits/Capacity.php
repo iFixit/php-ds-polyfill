@@ -1,7 +1,7 @@
 <?php
-namespace Ds\Traits;
+namespace iFixit\Ds\Traits;
 
-use Ds\Deque;
+use iFixit\Ds\Deque;
 
 /**
  * Common to structures that deal with an internal capacity. While none of the

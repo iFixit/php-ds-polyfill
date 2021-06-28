@@ -1,5 +1,5 @@
 <?php
-namespace Ds;
+namespace iFixit\Ds;
 
 use OutOfBoundsException;
 

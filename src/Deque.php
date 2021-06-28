@@ -1,5 +1,5 @@
 <?php
-namespace Ds;
+namespace iFixit\Ds;
 
 /**
  * A Deque (pronounced "deck") is a sequence of values in a contiguous buffer

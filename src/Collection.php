@@ -1,5 +1,5 @@
 <?php
-namespace Ds;
+namespace iFixit\Ds;
 
 /**
  * Collection is the base interface which covers functionality common to all the

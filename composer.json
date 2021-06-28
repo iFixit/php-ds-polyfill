@@ -1,5 +1,5 @@
 {
-    "name": "php-ds/php-ds",
+    "name": "ifixit/php-ds-polyfill",
     "license": "MIT",
     "keywords": ["php", "ds", "data structures", "polyfill"],
     "authors": [
@@ -12,12 +12,6 @@
         "php": ">=7.1.0",
         "ext-json": "*"
     },
-    "require-dev": {
-        "php-ds/tests": "^1.3"
-    },
-    "provide": {
-        "ext-ds": "1.3.0"
-    },
     "suggest": {
         "ext-ds": "to improve performance and reduce memory usage"
     },
@@ -26,7 +20,7 @@
     },
     "autoload": {
         "psr-4" : {
-            "Ds\\": "src"
+            "iFixit\\Ds\\": "src"
         }
     }
 }

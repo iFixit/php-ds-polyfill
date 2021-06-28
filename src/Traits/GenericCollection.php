@@ -1,5 +1,5 @@
 <?php
-namespace Ds\Traits;
+namespace iFixit\Ds\Traits;
 
 /**
  * Common to structures that implement the base collection interface.

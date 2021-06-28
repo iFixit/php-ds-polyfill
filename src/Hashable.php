@@ -1,5 +1,5 @@
 <?php
-namespace Ds;
+namespace iFixit\Ds;
 
 /**
  * Hashable is an interface which allows objects to be used as keys.

@@ -1,7 +1,7 @@
 <?php
-namespace Ds\Traits;
+namespace iFixit\Ds\Traits;
 
-use Ds\Sequence;
+use iFixit\Ds\Sequence;
 use OutOfRangeException;
 use UnderflowException;
 

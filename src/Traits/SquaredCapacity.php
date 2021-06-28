@@ -1,5 +1,5 @@
 <?php
-namespace Ds\Traits;
+namespace iFixit\Ds\Traits;
 
 /**
  * Common to structures that require a capacity which is a power of two.

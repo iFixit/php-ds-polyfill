@@ -1,8 +1,5 @@
 # Data Structures for PHP 7
 
-[![Build Status](https://travis-ci.org/php-ds/polyfill.svg?branch=master)](https://travis-ci.org/php-ds/polyfill)
-[![Packagist](https://img.shields.io/packagist/v/php-ds/php-ds.svg)](https://packagist.org/packages/php-ds/php-ds)
-
 This is a compatibility polyfill for the [extension](https://github.com/php-ds/extension). You should include this package as a dependency of your project
 to ensure that your codebase would still be functional in an environment where the extension is not installed. The polyfill will not be loaded if the extension is installed and enabled.
 

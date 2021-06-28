@@ -1,5 +1,5 @@
 <?php
-namespace Ds;
+namespace iFixit\Ds;
 
 /**
  * Describes the behaviour of values arranged in a single, linear dimension.

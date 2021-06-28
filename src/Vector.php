@@ -1,5 +1,5 @@
 <?php
-namespace Ds;
+namespace iFixit\Ds;
 
 /**
  * A Vector is a sequence of values in a contiguous buffer that grows and
