@@ -1,6 +1,7 @@
 <?php
 namespace iFixit\Ds;
 
+use Ds\Set as DSSet;
 use Error;
 use OutOfBoundsException;
 use OutOfRangeException;
@@ -41,6 +42,10 @@ final class Set implements Collection, \ArrayAccess
         foreach ($values as $value) {
             $this->add($value);
         }
+    }
+
+    public static function makeFromDS(DSSet $set){
+        return new Set($set->toArray());
     }
 
     /**
