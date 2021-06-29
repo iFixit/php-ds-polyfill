@@ -1,6 +1,7 @@
 <?php
 namespace iFixit\Ds;
 
+use Ds\Map as DSMap;
 use Error;
 use OutOfBoundsException;
 use OutOfRangeException;
@@ -43,7 +44,11 @@ final class Map implements Collection, \ArrayAccess
         if (func_num_args()) {
             $this->putAll($values);
         }
+    }
 
+    public static function makeFromDS(DSMap $map)
+    {
+        return new Map($map->toArray());
     }
 
     /**
