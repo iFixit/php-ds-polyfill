@@ -145,7 +145,7 @@ final class Set implements Collection, \ArrayAccess
      */
     public function diff(Set $set): Set
     {
-        return $this->table->diff($set->table)->keys();
+        return Set::makeFromDS($this->table->diff($set->table)->keys());
     }
 
     /**
@@ -164,7 +164,7 @@ final class Set implements Collection, \ArrayAccess
      */
     public function xor(Set $set): Set
     {
-        return $this->table->xor($set->table)->keys();
+        return Set::makeFromDS($this->table->xor($set->table)->keys());
     }
 
     /**
@@ -229,7 +229,8 @@ final class Set implements Collection, \ArrayAccess
      */
     public function intersect(Set $set): Set
     {
-        return $this->table->intersect($set->table)->keys();
+        // table returns DSSets
+        return Set::makeFromDS($this->table->intersect($set->table)->keys());
     }
 
     /**
