@@ -2,6 +2,7 @@
 namespace iFixit\Ds;
 
 use Ds\Map as DSMap;
+use Ds\Set as DSSet;
 use Error;
 use OutOfBoundsException;
 use OutOfRangeException;
@@ -339,17 +340,17 @@ final class Map implements Collection, \ArrayAccess
     /**
      * Returns a set of all the keys in the map.
      *
-     * @return Set
+     * @return DSSet
      *
-     * @psalm-return Set<TKey>
+     * @psalm-return DSSet<TKey>
      */
-    public function keys(): Set
+    public function keys(): DSSet
     {
         $key = function($pair) {
             return $pair->key;
         };
 
-        return new Set(array_map($key, $this->pairs));
+        return new DSSet(array_map($key, $this->pairs));
     }
 
     /**
