@@ -29,7 +29,8 @@
         "ext-ds": "to improve performance and reduce memory usage"
     },
     "scripts": {
-        "test": "php --no-php-ini ./vendor/bin/phpunit"
+        "test": "phpunit",
+        "test-no-ini": "php --no-php-ini -dextension=dom.so ./vendor/bin/phpunit"
     },
     "autoload": {
         "psr-4" : {
