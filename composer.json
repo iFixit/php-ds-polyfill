@@ -1,5 +1,6 @@
 {
     "name": "php-ds/php-ds",
+    "description": "Pure PHP polyfill for the Ds extension",
     "license": "MIT",
     "keywords": ["php", "ds", "data structures", "polyfill"],
     "authors": [
