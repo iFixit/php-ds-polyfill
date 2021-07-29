@@ -25,11 +25,25 @@ final class Map implements Collection, \ArrayAccess
     const MIN_CAPACITY = 8;
 
     /**
-     * @var array internal array to store pairs
-     *
-     * @psalm-var array<int, Pair>
+     * @var int internal ordered index for the next pair ref.
      */
-    private $pairs = [];
+    private $nextPairIndex = 0;
+
+    /**
+     * @var array internal array to store ordered references to pairs. Although
+     * the array has ascending integer indices, they aren't necessarily
+     * contiguous.
+     *
+     * @psalm-var array<int, PairRef<TKey, TValue>>
+     */
+    private $pairRefs = [];
+
+    /**
+     * @var array internal lookup table to quickly find pairs by hash key.
+     *
+     * @psalm-var array<array-key, PairRef<TKey, TValue>|list<PairRef<TKey, TValue>>>
+     */
+    private $table = [];
 
     /**
      * Creates a new instance.
@@ -43,7 +57,6 @@ final class Map implements Collection, \ArrayAccess
         if (func_num_args()) {
             $this->putAll($values);
         }
-
     }
 
     /**
@@ -56,8 +69,8 @@ final class Map implements Collection, \ArrayAccess
      */
     public function apply(callable $callback)
     {
-        foreach ($this->pairs as &$pair) {
-            $pair->value = $callback($pair->key, $pair->value);
+        foreach ($this->pairRefs as $pairRef) {
+            $pairRef->value = $callback($pairRef->key, $pairRef->value);
         }
     }
 
@@ -66,12 +79,14 @@ final class Map implements Collection, \ArrayAccess
      */
     public function clear()
     {
-        $this->pairs = [];
+        $this->nextPairIndex = 0;
+        $this->pairRefs = [];
+        $this->table = [];
         $this->capacity = self::MIN_CAPACITY;
     }
 
     /**
-     * Return the first Pair from the Map
+     * Return the a copy of the first Pair from the Map
      *
      * @return Pair
      *
@@ -85,11 +100,12 @@ final class Map implements Collection, \ArrayAccess
             throw new UnderflowException();
         }
 
-        return $this->pairs[0];
+        $pairRef = reset($this->pairRefs);
+        return $pairRef->toPair();
     }
 
     /**
-     * Return the last Pair from the Map
+     * Return a copy of the last Pair from the Map
      *
      * @return Pair
      *
@@ -103,11 +119,12 @@ final class Map implements Collection, \ArrayAccess
             throw new UnderflowException();
         }
 
-        return $this->pairs[count($this->pairs) - 1];
+        $pairRef = end($this->pairRefs);
+        return $pairRef->toPair();
     }
 
     /**
-     * Return the pair at a specified position in the Map
+     * Return a copy of the pair at a specified position in the Map
      *
      * @return Pair
      *
@@ -117,11 +134,11 @@ final class Map implements Collection, \ArrayAccess
      */
     public function skip(int $position): Pair
     {
-        if ($position < 0 || $position >= count($this->pairs)) {
+        if ($position < 0 || $position >= count($this->pairRefs)) {
             throw new OutOfRangeException();
         }
-
-        return $this->pairs[$position]->copy();
+        $pairRef = array_slice($this->pairRefs, $position, 1)[0];
+        return $pairRef->toPair();
     }
 
     /**
@@ -139,7 +156,7 @@ final class Map implements Collection, \ArrayAccess
      */
     public function merge($values): Map
     {
-        $merged = new self($this);
+        $merged = new self($this->getIterator());
         $merged->putAll($values);
         return $merged;
     }
@@ -189,6 +206,62 @@ final class Map implements Collection, \ArrayAccess
     }
 
     /**
+     * Returns a hashed value suitable for using as an index in an array
+     * (string or integer), trying to match the high-level behavior of the
+     * get_hash function in the extension's ds_hashtable.c. Where the extension
+     * uses the ZSTR_HASH macro to hash a string, we just use the string
+     * itself as the hash value, trusting PHP's array to handle it
+     * appropriately. Floats (doubles) are converted to an integer value by
+     * interpreting their bits as those of a long long, rewriting -0.0 to 0.0,
+     * as the extension does (but we don't xor the lower and upper 32 bits).
+     *
+     * See https://github.com/php-ds/ext-ds/blob/master/src/ds/ds_htable.c
+     *
+     * @param mixed $key Any value
+     *
+     * @return mixed The string or integer hash value.
+     *
+     * @psalm-return string|int
+     */
+    private function getHash($key)
+    {
+        if (is_object($key)) {
+            if ($key instanceof Hashable) {
+                // Use this same logic to hash whatever the hash() method gives
+                // us because it's unconstrained.
+                return $this->getHash($key->hash());
+            } else {
+                // Note that PHP aggressively reuses the hash values of
+                // destroyed objects.
+                return spl_object_hash($key);
+            }
+        } else if (is_string($key)) {
+            return $key;
+        } else if (is_array($key)) {
+            // Take a hash of the serialized value to avoid PHP having to do a
+            // long string comparison on each lookup (we already check the
+            // actual array values for equality ourselves).
+            return md5(serialize($key));
+        } else if (is_float($key)) {
+            if ($key === -0.0) {
+                return 0;
+            }
+            /**
+             * Mimic the extension's hack to treat a double's bits as an
+             * unsigned long long.
+             * @var false|array{int:int}
+             */
+            $data = unpack('Qint', pack('d', $key));
+            return $data === false ? 0 : $data['int'];
+        } else if (is_resource($key)) {
+            return get_resource_id($key);
+        }
+
+        // We should only have valid scalar array indices left.
+        return (int) $key;
+    }
+
+    /**
      * Determines whether two keys are equal.
      *
      * @param mixed $a
@@ -200,7 +273,7 @@ final class Map implements Collection, \ArrayAccess
     private function keysAreEqual($a, $b): bool
     {
         if (is_object($a) && $a instanceof Hashable) {
-            return get_class($a) === get_class($b) && $a->equals($b);
+            return is_object($b) && $a->equals($b);
         }
 
         return $a === $b;
@@ -210,18 +283,36 @@ final class Map implements Collection, \ArrayAccess
      * Attempts to look up a key in the table.
      *
      * @param $key
+     * @param $hash The internal hash computed for the key.
      *
-     * @return Pair|null
+     * @psalm-param TKey $key
+     * @psalm-param-out string|int $hash
      *
-     * @psalm-return Pair<TKey, TValue>|null
+     * @return PairRef<TKey, TValue>|null
+     *
+     * @psalm-return PairRef<TKey, TValue>|null
      */
-    private function lookupKey($key)
+    private function lookupKey($key, &$hash = null)
     {
-        foreach ($this->pairs as $pair) {
-            if ($this->keysAreEqual($pair->key, $key)) {
-                return $pair;
+        $hash = $this->getHash($key);
+        if (!array_key_exists($hash, $this->table)) {
+            return null;
+        }
+
+        $hashMatch = $this->table[$hash];
+        if ($hashMatch instanceof PairRef) {
+            if ($this->keysAreEqual($hashMatch->key, $key)) {
+                return $hashMatch;
+            }
+        } else {
+            foreach ($hashMatch as $pairRef) {
+                if ($this->keysAreEqual($pairRef->key, $key)) {
+                    return $pairRef;
+                }
             }
         }
+
+        return null;
     }
 
     /**
@@ -229,15 +320,15 @@ final class Map implements Collection, \ArrayAccess
      *
      * @param $value
      *
-     * @return Pair|null
+     * @return PairRef<TKey, TValue>|null
      *
-     * @psalm-return Pair<TKey, TValue>|null
+     * @psalm-return PairRef<TKey, TValue>|null
      */
     private function lookupValue($value)
     {
-        foreach ($this->pairs as $pair) {
-            if ($pair->value === $value) {
-                return $pair;
+        foreach ($this->pairRefs as $pairRef) {
+            if ($pairRef->value === $value) {
+                return $pairRef;
             }
         }
     }
@@ -271,7 +362,7 @@ final class Map implements Collection, \ArrayAccess
      */
     public function count(): int
     {
-        return count($this->pairs);
+        return count($this->pairRefs);
     }
 
     /**
@@ -291,7 +382,9 @@ final class Map implements Collection, \ArrayAccess
     {
         $filtered = new self();
 
-        foreach ($this as $key => $value) {
+        foreach ($this->pairRefs as $pairRef) {
+            $key = $pairRef->key;
+            $value = $pairRef->value;
             if ($callback ? $callback($key, $value) : $value) {
                 $filtered->put($key, $value);
             }
@@ -319,8 +412,8 @@ final class Map implements Collection, \ArrayAccess
      */
     public function get($key, $default = null)
     {
-        if (($pair = $this->lookupKey($key))) {
-            return $pair->value;
+        if (($pairRef = $this->lookupKey($key))) {
+            return $pairRef->value;
         }
 
         // Check if a default was provided.
@@ -340,11 +433,11 @@ final class Map implements Collection, \ArrayAccess
      */
     public function keys(): Set
     {
-        $key = function($pair) {
-            return $pair->key;
+        $key = function($pairRef) {
+            return $pairRef->key;
         };
 
-        return new Set(array_map($key, $this->pairs));
+        return new Set(array_map($key, $this->pairRefs));
     }
 
     /**
@@ -364,8 +457,9 @@ final class Map implements Collection, \ArrayAccess
     public function map(callable $callback): Map
     {
         $mapped = new self();
-        foreach ($this->pairs as $pair) {
-            $mapped->put($pair->key, $callback($pair->key, $pair->value));
+        foreach ($this->pairRefs as $pairRef) {
+            $newValue = $callback($pairRef->key, $pairRef->value);
+            $mapped->put($pairRef->key, $newValue);
         }
 
         return $mapped;
@@ -380,11 +474,11 @@ final class Map implements Collection, \ArrayAccess
      */
     public function pairs(): Sequence
     {
-        $copy = function($pair) {
-            return $pair->copy();
+        $copyPair = function($pairRef) {
+            return $pairRef->toPair();
         };
 
-        return new Vector(array_map($copy, $this->pairs));
+        return new Vector(array_map($copyPair, $this->pairRefs));
     }
 
     /**
@@ -399,14 +493,26 @@ final class Map implements Collection, \ArrayAccess
      */
     public function put($key, $value)
     {
-        $pair = $this->lookupKey($key);
+        $pairRef = $this->lookupKey($key, $hash);
 
-        if ($pair) {
-            $pair->value = $value;
-
+        if ($pairRef) {
+            $pairRef->value = $value;
         } else {
             $this->checkCapacity();
-            $this->pairs[] = new Pair($key, $value);
+            $pairIndex = $this->nextPairIndex++;
+            $pairRef = new PairRef($pairIndex, $key, $value);
+            $this->pairRefs[$pairIndex] = $pairRef;
+
+            if (!array_key_exists($hash, $this->table)) {
+                $this->table[$hash] = $pairRef;
+            } else {
+                $hashMatch =& $this->table[$hash];
+                if (!is_array($hashMatch)) {
+                    $this->table[$hash] = [$hashMatch, $pairRef];
+                } else {
+                    $hashMatch[] = $pairRef;
+                }
+            }
         }
     }
 
@@ -445,30 +551,54 @@ final class Map implements Collection, \ArrayAccess
     {
         $carry = $initial;
 
-        foreach ($this->pairs as $pair) {
-            $carry = $callback($carry, $pair->key, $pair->value);
+        foreach ($this->pairRefs as $pairRef) {
+            $carry = $callback($carry, $pairRef->key, $pairRef->value);
         }
 
         return $carry;
     }
 
     /**
-     * Completely removes a pair from the internal array by position. It is
-     * important to remove it from the array and not just use 'unset'.
+     * Completely removes a pair from the internal data structures by its
+     * PairRef and hash.
+     *
+     * @param mixed $hash the internal hash for the pair
+     *
+     * @psalm-param PairRef<TKey, TValue>
+     * @psalm-param int|string $hash
      *
      * @return mixed
      *
      * @psalm-return TValue
      */
-    private function delete(int $position)
+    private function delete(PairRef $pairRef, $hash)
     {
-        $pair  = $this->pairs[$position];
-        $value = $pair->value;
+        // Remove from ordered list. Note that holes in the list are fine;
+        // order is preserved.
+        unset($this->pairRefs[$pairRef->pairIndex]);
 
-        array_splice($this->pairs, $position, 1, null);
+        // Remove from lookup table.
+
+        $hashMatch =& $this->table[$hash];
+
+        if ($hashMatch instanceof PairRef) {
+            unset($this->table[$hash]);
+        } else {
+            $key = $pairRef->key;
+            foreach ($hashMatch as $position => $hashedPairRef) {
+                if ($this->keysAreEqual($hashedPairRef->key, $key)) {
+                    array_splice($hashMatch, $position, 1);
+                    if (count($hashMatch) === 1) {
+                        $hashMatch = reset($hashMatch);
+                    }
+                    break;
+                }
+            }
+        }
+
         $this->checkCapacity();
 
-        return $value;
+        return $pairRef->value;
     }
 
     /**
@@ -490,10 +620,11 @@ final class Map implements Collection, \ArrayAccess
      */
     public function remove($key, $default = null)
     {
-        foreach ($this->pairs as $position => $pair) {
-            if ($this->keysAreEqual($pair->key, $key)) {
-                return $this->delete($position);
-            }
+        // lookupKey() stores the computed hash in $hash.
+        $pairRef = $this->lookupKey($key, $hash);
+
+        if ($pairRef) {
+            return $this->delete($pairRef, $hash);
         }
 
         // Check if a default was provided
@@ -505,11 +636,31 @@ final class Map implements Collection, \ArrayAccess
     }
 
     /**
+     * Re-indexes the internal pairRefs array from 0 ascending, updates the
+     * PairRef objects with their new indices, and resets the "next index"
+     * counter to the next available array index.
+     */
+    private function compactPairRefs()
+    {
+       // Renumber indices from 0 ascending.
+       $this->pairRefs = array_slice($this->pairRefs, 0);
+       $this->nextPairIndex = count($this->pairRefs);
+
+       $updateIndex = function(PairRef $pairRef, int $position): void {
+          $pairRef->pairIndex = $position;
+       };
+
+       array_walk($this->pairRefs, $updateIndex);
+    }
+
+    /**
      * Reverses the map in-place
      */
     public function reverse()
     {
-        $this->pairs = array_reverse($this->pairs);
+        $this->pairRefs = array_reverse($this->pairRefs);
+
+        $this->compactPairRefs();
     }
 
     /**
@@ -522,7 +673,10 @@ final class Map implements Collection, \ArrayAccess
     public function reversed(): Map
     {
         $reversed = new self();
-        $reversed->pairs = array_reverse($this->pairs);
+
+        foreach (array_reverse($this->pairRefs) as $pairRef) {
+            $reversed->put($pairRef->key, $pairRef->value);
+        }
 
         return $reversed;
     }
@@ -556,14 +710,10 @@ final class Map implements Collection, \ArrayAccess
     {
         $map = new self();
 
-        if (func_num_args() === 1) {
-            $slice = array_slice($this->pairs, $offset);
-        } else {
-            $slice = array_slice($this->pairs, $offset, $length);
-        }
+        $pairRefs = array_slice($this->pairRefs, $offset, $length);
 
-        foreach ($slice as $pair) {
-            $map->put($pair->key, $pair->value);
+        foreach ($pairRefs as $pairRef) {
+            $map->put($pairRef->key, $pairRef->value);
         }
 
         return $map;
@@ -581,15 +731,16 @@ final class Map implements Collection, \ArrayAccess
     public function sort(callable $comparator = null)
     {
         if ($comparator) {
-            usort($this->pairs, function($a, $b) use ($comparator) {
+            usort($this->pairRefs, function($a, $b) use ($comparator) {
                 return $comparator($a->value, $b->value);
             });
-
         } else {
-            usort($this->pairs, function($a, $b) {
+            usort($this->pairRefs, function($a, $b) {
                 return $a->value <=> $b->value;
             });
         }
+
+        $this->compactPairRefs();
     }
 
     /**
@@ -622,15 +773,16 @@ final class Map implements Collection, \ArrayAccess
     public function ksort(callable $comparator = null)
     {
         if ($comparator) {
-            usort($this->pairs, function($a, $b) use ($comparator) {
+            usort($this->pairRefs, function($a, $b) use ($comparator) {
                 return $comparator($a->key, $b->key);
             });
-
         } else {
-            usort($this->pairs, function($a, $b) {
+            usort($this->pairRefs, function($a, $b) {
                 return $a->key <=> $b->key;
             });
         }
+
+        $this->compactPairRefs();
     }
 
     /**
@@ -666,13 +818,7 @@ final class Map implements Collection, \ArrayAccess
      */
     public function toArray(): array
     {
-        $array = [];
-
-        foreach ($this->pairs as $pair) {
-            $array[$pair->key] = $pair->value;
-        }
-
-        return $array;
+        return iterator_to_array($this->getIterator());
     }
 
     /**
@@ -684,11 +830,11 @@ final class Map implements Collection, \ArrayAccess
      */
     public function values(): Sequence
     {
-        $value = function($pair) {
-            return $pair->value;
+        $value = function($pairRef) {
+            return $pairRef->value;
         };
 
-        return new Vector(array_map($value, $this->pairs));
+        return new Vector(array_map($value, $this->pairRefs));
     }
 
     /**
@@ -736,8 +882,8 @@ final class Map implements Collection, \ArrayAccess
      */
     public function getIterator()
     {
-        foreach ($this->pairs as $pair) {
-            yield $pair->key => $pair->value;
+        foreach ($this->pairRefs as $pairRef) {
+            yield $pairRef->key => $pairRef->value;
         }
     }
 
@@ -766,10 +912,10 @@ final class Map implements Collection, \ArrayAccess
      */
     public function &offsetGet($offset)
     {
-        $pair = $this->lookupKey($offset);
+        $pairRef = $this->lookupKey($offset);
 
-        if ($pair) {
-            return $pair->value;
+        if ($pairRef) {
+            return $pairRef->value;
         }
         throw new OutOfBoundsException();
     }
@@ -802,5 +948,56 @@ final class Map implements Collection, \ArrayAccess
     public function jsonSerialize()
     {
         return (object) $this->toArray();
+    }
+}
+
+/**
+ * A reference to a pair that keeps track of its position in a parallel ordered
+ * array.
+ *
+ * @property int $pairIndex
+ * @property mixed $key
+ * @property mixed $value
+ *
+ * @package Ds
+ *
+ * @template-covariant TKey
+ * @template-covariant TValue
+ */
+final class PairRef {
+    /**
+     * @var int
+     */
+    public $pairIndex;
+
+    /**
+     * @var mixed The pair's key
+     *
+     * @psalm-param TKey $key
+     */
+    public $key;
+
+    /**
+     * @var mixed The pair's value
+     *
+     * @psalm-param TValue $value
+     */
+    public $value;
+
+    public function __construct(int $pairIndex, $key, $value)
+    {
+        $this->pairIndex = $pairIndex;
+        $this->key = $key;
+        $this->value = $value;
+    }
+
+    /**
+     * Return a Pair instance with this reference's key and value
+     *
+     * @psalm-return Pair<TKey, TValue>
+     */
+    public function toPair(): Pair
+    {
+        return new Pair($this->key, $this->value);
     }
 }
