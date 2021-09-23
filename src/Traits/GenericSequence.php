@@ -11,6 +11,8 @@ use UnderflowException;
  * share the same implementation using an array array.
  *
  * @package Ds\Traits
+ *
+ * @template TValue
  */
 trait GenericSequence
 {
@@ -34,7 +36,7 @@ trait GenericSequence
     }
 
     /**
-     * @inheritdoc
+     * @return array<TValue>
      */
     public function toArray(): array
     {
@@ -42,7 +44,7 @@ trait GenericSequence
     }
 
     /**
-     * @inheritdoc
+     * @param callable(TValue): TValue $callback
      */
     public function apply(callable $callback)
     {
@@ -52,7 +54,7 @@ trait GenericSequence
     }
 
     /**
-     * @inheritdoc
+     * @return self<TValue>
      */
     public function merge($values): Sequence
     {
@@ -62,16 +64,13 @@ trait GenericSequence
     }
 
     /**
-     * @inheritdoc
+     * @return int
      */
     public function count(): int
     {
         return count($this->array);
     }
 
-    /**
-     * @inheritDoc
-     */
     public function contains(...$values): bool
     {
         foreach ($values as $value) {
@@ -84,7 +83,7 @@ trait GenericSequence
     }
 
     /**
-     * @inheritDoc
+     * @return self<TValue>
      */
     public function filter(callable $callback = null): Sequence
     {
@@ -92,7 +91,7 @@ trait GenericSequence
     }
 
     /**
-     * @inheritDoc
+     * @return array-key|false
      */
     public function find($value)
     {
@@ -100,7 +99,7 @@ trait GenericSequence
     }
 
     /**
-     * @inheritDoc
+     * @return TValue
      */
     public function first()
     {
@@ -112,7 +111,7 @@ trait GenericSequence
     }
 
     /**
-     * @inheritDoc
+     * @return TValue
      */
     public function get(int $index)
     {
@@ -123,9 +122,6 @@ trait GenericSequence
         return $this->array[$index];
     }
 
-    /**
-     * @inheritDoc
-     */
     public function insert(int $index, ...$values)
     {
         if ( ! $this->validIndex($index) && $index !== count($this)) {
@@ -136,16 +132,13 @@ trait GenericSequence
         $this->checkCapacity();
     }
 
-    /**
-     * @inheritDoc
-     */
     public function join(string $glue = null): string
     {
         return implode($glue, $this->array);
     }
 
     /**
-     * @inheritDoc
+     * @return TValue
      */
     public function last()
     {
@@ -157,7 +150,7 @@ trait GenericSequence
     }
 
     /**
-     * @inheritDoc
+     * @return self<TValue>
      */
     public function map(callable $callback): Sequence
     {
@@ -165,7 +158,7 @@ trait GenericSequence
     }
 
     /**
-     * @inheritDoc
+     * @return TValue
      */
     public function pop()
     {
@@ -179,9 +172,6 @@ trait GenericSequence
         return $value;
     }
 
-    /**
-     * @inheritDoc
-     */
     public function push(...$values)
     {
         $this->ensureCapacity($this->count() + count($values));
@@ -192,7 +182,10 @@ trait GenericSequence
     }
 
     /**
-     * @inheritDoc
+     * @template U
+     * @param U $initial
+     * @param callable(U, TValue): U
+     * @return U
      */
     public function reduce(callable $callback, $initial = null)
     {
@@ -200,7 +193,7 @@ trait GenericSequence
     }
 
     /**
-     * @inheritDoc
+     * @return TValue
      */
     public function remove(int $index)
     {
@@ -214,16 +207,13 @@ trait GenericSequence
         return $value;
     }
 
-    /**
-     * @inheritDoc
-     */
     public function reverse()
     {
         $this->array = array_reverse($this->array);
     }
 
     /**
-     * @inheritDoc
+     * @return self<TValue>
      */
     public function reversed(): Sequence
     {
@@ -244,9 +234,6 @@ trait GenericSequence
         return $r % $n;
     }
 
-    /**
-     * @inheritDoc
-     */
     public function rotate(int $rotations)
     {
         for ($r = $this->normalizeRotations($rotations); $r > 0; $r--) {
@@ -254,9 +241,6 @@ trait GenericSequence
         }
     }
 
-    /**
-     * @inheritDoc
-     */
     public function set(int $index, $value)
     {
         if ( ! $this->validIndex($index)) {
@@ -267,7 +251,7 @@ trait GenericSequence
     }
 
     /**
-     * @inheritDoc
+     * @return TValue
      */
     public function shift()
     {
@@ -282,7 +266,7 @@ trait GenericSequence
     }
 
     /**
-     * @inheritDoc
+     * @return self<TValue>
      */
     public function slice(int $offset, int $length = null): Sequence
     {
@@ -293,9 +277,6 @@ trait GenericSequence
         return new self(array_slice($this->array, $offset, $length));
     }
 
-    /**
-     * @inheritDoc
-     */
     public function sort(callable $comparator = null)
     {
         if ($comparator) {
@@ -306,7 +287,7 @@ trait GenericSequence
     }
 
     /**
-     * @inheritDoc
+     * @return self<TValue>
      */
     public function sorted(callable $comparator = null): Sequence
     {
@@ -316,16 +297,13 @@ trait GenericSequence
     }
 
     /**
-     * @inheritDoc
+     * @return int|float
      */
     public function sum()
     {
         return array_sum($this->array);
     }
 
-    /**
-     * @inheritDoc
-     */
     public function unshift(...$values)
     {
         if ($values) {
@@ -334,17 +312,11 @@ trait GenericSequence
         }
     }
 
-    /**
-     *
-     */
     private function validIndex(int $index)
     {
         return $index >= 0 && $index < count($this);
     }
 
-    /**
-     *
-     */
     public function getIterator()
     {
         foreach ($this->array as $value) {
@@ -352,18 +324,12 @@ trait GenericSequence
         }
     }
 
-    /**
-     * @inheritdoc
-     */
     public function clear()
     {
         $this->array = [];
         $this->capacity = self::MIN_CAPACITY;
     }
 
-    /**
-     * @inheritdoc
-     */
     public function offsetSet($offset, $value)
     {
         if ($offset === null) {
@@ -374,7 +340,7 @@ trait GenericSequence
     }
 
     /**
-     * @inheritdoc
+     * @return TValue
      */
     public function &offsetGet($offset)
     {
@@ -385,9 +351,6 @@ trait GenericSequence
         return $this->array[$offset];
     }
 
-    /**
-     * @inheritdoc
-     */
     public function offsetUnset($offset)
     {
         if (is_integer($offset) && $this->validIndex($offset)) {
@@ -396,7 +359,7 @@ trait GenericSequence
     }
 
     /**
-     * @inheritdoc
+     * @return bool
      */
     public function offsetExists($offset)
     {

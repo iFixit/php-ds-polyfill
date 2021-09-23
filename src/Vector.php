@@ -15,6 +15,7 @@ namespace Ds;
 final class Vector implements Sequence
 {
     use Traits\GenericCollection;
+    /** @use Traits\GenericSequence<TValue> */
     use Traits\GenericSequence;
     use Traits\Capacity;
 
