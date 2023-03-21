@@ -11,7 +11,9 @@ use OutOfBoundsException;
  * @package Ds
  *
  * @template TValue
- * @implements Sequence<TValue>
+ * @implements Collection<int, TValue>
+ * @implements \ArrayAccess<int, TValue>
+ * @template-use Traits\GenericCollection<int, TValue>
  */
 final class Stack implements Collection, \ArrayAccess
 {
@@ -132,6 +134,7 @@ final class Stack implements Collection, \ArrayAccess
     /**
      *
      */
+    #[\ReturnTypeWillChange]
     public function getIterator()
     {
         while ( ! $this->isEmpty()) {
@@ -144,6 +147,7 @@ final class Stack implements Collection, \ArrayAccess
      *
      * @throws OutOfBoundsException
      */
+    #[\ReturnTypeWillChange]
     public function offsetSet($offset, $value)
     {
         if ($offset === null) {
@@ -158,6 +162,7 @@ final class Stack implements Collection, \ArrayAccess
      *
      * @throws Error
      */
+    #[\ReturnTypeWillChange]
     public function offsetGet($offset)
     {
         throw new Error();
@@ -168,6 +173,7 @@ final class Stack implements Collection, \ArrayAccess
      *
      * @throws Error
      */
+    #[\ReturnTypeWillChange]
     public function offsetUnset($offset)
     {
         throw new Error();
@@ -178,6 +184,7 @@ final class Stack implements Collection, \ArrayAccess
      *
      * @throws Error
      */
+    #[\ReturnTypeWillChange]
     public function offsetExists($offset)
     {
         throw new Error();

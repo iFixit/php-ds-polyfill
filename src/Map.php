@@ -1,10 +1,8 @@
 <?php
 namespace Ds;
 
-use Error;
 use OutOfBoundsException;
 use OutOfRangeException;
-use Traversable;
 use UnderflowException;
 
 /**
@@ -16,13 +14,15 @@ use UnderflowException;
  * @template TKey
  * @template TValue
  * @implements Collection<TKey, TValue>
+ * @implements \ArrayAccess<TKey, TValue>
+ * @template-use Traits\GenericCollection<TKey, TValue>
  */
 final class Map implements Collection, \ArrayAccess
 {
     use Traits\GenericCollection;
     use Traits\SquaredCapacity;
 
-    const MIN_CAPACITY = 8;
+    public const MIN_CAPACITY = 8;
 
     /**
      * @var int internal ordered index for the next pair ref.
@@ -880,6 +880,7 @@ final class Map implements Collection, \ArrayAccess
     /**
      * @inheritDoc
      */
+    #[\ReturnTypeWillChange]
     public function getIterator()
     {
         foreach ($this->pairRefs as $pairRef) {
@@ -900,6 +901,7 @@ final class Map implements Collection, \ArrayAccess
     /**
      * @inheritdoc
      */
+    #[\ReturnTypeWillChange]
     public function offsetSet($offset, $value)
     {
         $this->put($offset, $value);
@@ -910,6 +912,7 @@ final class Map implements Collection, \ArrayAccess
      *
      * @throws OutOfBoundsException
      */
+    #[\ReturnTypeWillChange]
     public function &offsetGet($offset)
     {
         $pairRef = $this->lookupKey($offset);
@@ -923,6 +926,7 @@ final class Map implements Collection, \ArrayAccess
     /**
      * @inheritdoc
      */
+    #[\ReturnTypeWillChange]
     public function offsetUnset($offset)
     {
         $this->remove($offset, null);
@@ -931,6 +935,7 @@ final class Map implements Collection, \ArrayAccess
     /**
      * @inheritdoc
      */
+    #[\ReturnTypeWillChange]
     public function offsetExists($offset)
     {
         return $this->get($offset, null) !== null;

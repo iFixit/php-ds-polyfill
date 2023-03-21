@@ -13,6 +13,8 @@ namespace Ds;
  *
  * @template TValue
  * @implements Sequence<TValue>
+ * @template-use Traits\GenericCollection<int, TValue>
+ * @template-use Traits\GenericSequence<TValue>
  */
 final class Deque implements Sequence
 {
@@ -20,7 +22,7 @@ final class Deque implements Sequence
     use Traits\GenericSequence;
     use Traits\SquaredCapacity;
 
-    const MIN_CAPACITY = 8;
+    public const MIN_CAPACITY = 8;
 
     protected function shouldIncreaseCapacity(): bool
     {

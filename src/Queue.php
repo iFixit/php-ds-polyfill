@@ -12,6 +12,8 @@ use OutOfBoundsException;
  *
  * @template TValue
  * @implements Collection<int, TValue>
+ * @implements \ArrayAccess<int, TValue>
+ * @template-use Traits\GenericCollection<int, TValue>
  */
 final class Queue implements Collection, \ArrayAccess 
 {
@@ -106,7 +108,7 @@ final class Queue implements Collection, \ArrayAccess
     }
 
     /**
-     * Pushes zero or more values into the front of the queue.
+     * Pushes zero or more values into the back of the queue.
      *
      * @param mixed ...$values
      *
@@ -128,6 +130,7 @@ final class Queue implements Collection, \ArrayAccess
     /**
      * Get iterator
      */
+    #[\ReturnTypeWillChange]
     public function getIterator()
     {
         while ( ! $this->isEmpty()) {
@@ -141,6 +144,7 @@ final class Queue implements Collection, \ArrayAccess
      *
      * @throws OutOfBoundsException
      */
+    #[\ReturnTypeWillChange]
     public function offsetSet($offset, $value)
     {
         if ($offset === null) {
@@ -155,6 +159,7 @@ final class Queue implements Collection, \ArrayAccess
      *
      * @throws Error
      */
+    #[\ReturnTypeWillChange]
     public function offsetGet($offset)
     {
         throw new Error();
@@ -165,6 +170,7 @@ final class Queue implements Collection, \ArrayAccess
      *
      * @throws Error
      */
+    #[\ReturnTypeWillChange]
     public function offsetUnset($offset)
     {
         throw new Error();
@@ -175,6 +181,7 @@ final class Queue implements Collection, \ArrayAccess
      *
      * @throws Error
      */
+    #[\ReturnTypeWillChange]
     public function offsetExists($offset)
     {
         throw new Error();

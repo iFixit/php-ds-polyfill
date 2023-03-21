@@ -11,6 +11,8 @@ use UnderflowException;
  * share the same implementation using an array array.
  *
  * @package Ds\Traits
+ *
+ * @template TValue
  */
 trait GenericSequence
 {
@@ -31,10 +33,15 @@ trait GenericSequence
         foreach ($values as $value) {
             $this->push($value);
         }
+
+        $this->capacity = max(
+            $values === null ? 0 : count($values),
+            $this::MIN_CAPACITY
+        );
     }
 
     /**
-     * @inheritdoc
+     * @return list<TValue>
      */
     public function toArray(): array
     {
@@ -42,7 +49,7 @@ trait GenericSequence
     }
 
     /**
-     * @inheritdoc
+     * @psalm-param callable(TValue): TValue $callback
      */
     public function apply(callable $callback)
     {
@@ -52,7 +59,9 @@ trait GenericSequence
     }
 
     /**
-     * @inheritdoc
+     * @template TValue2
+     * @psalm-param iterable<TValue2> $values
+     * @psalm-return Sequence<TValue|TValue2>
      */
     public function merge($values): Sequence
     {
@@ -62,7 +71,7 @@ trait GenericSequence
     }
 
     /**
-     * @inheritdoc
+     *
      */
     public function count(): int
     {
@@ -70,12 +79,12 @@ trait GenericSequence
     }
 
     /**
-     * @inheritDoc
+     * @psalm-param TValue ...$values
      */
     public function contains(...$values): bool
     {
         foreach ($values as $value) {
-            if ($this->find($value) === false) {
+            if ($this->find($value) === null) {
                 return false;
             }
         }
@@ -84,7 +93,8 @@ trait GenericSequence
     }
 
     /**
-     * @inheritDoc
+     * @psalm-param (callable(TValue): bool)|null $callback
+     * @psalm-return Sequence<TValue>
      */
     public function filter(callable $callback = null): Sequence
     {
@@ -92,15 +102,21 @@ trait GenericSequence
     }
 
     /**
-     * @inheritDoc
+     * @return int|null
+     *
+     * @psalm-param TValue $value
      */
     public function find($value)
     {
-        return array_search($value, $this->array, true);
+        $offset = array_search($value, $this->array, true);
+
+        return $offset === false ? null : $offset;
     }
 
     /**
-     * @inheritDoc
+     * @throws \UnderflowException if the sequence is empty.
+     *
+     * @psalm-return TValue
      */
     public function first()
     {
@@ -112,7 +128,9 @@ trait GenericSequence
     }
 
     /**
-     * @inheritDoc
+     * @throws \OutOfRangeException if the index is not in the range [0, size-1]
+     *
+     * @psalm-return TValue
      */
     public function get(int $index)
     {
@@ -124,7 +142,9 @@ trait GenericSequence
     }
 
     /**
-     * @inheritDoc
+     * @throws \OutOfRangeException if the index is not in the range [0, n]
+     *
+     * @psalm-param TValue ...$values
      */
     public function insert(int $index, ...$values)
     {
@@ -137,15 +157,17 @@ trait GenericSequence
     }
 
     /**
-     * @inheritDoc
+     *
      */
     public function join(string $glue = null): string
     {
-        return implode($glue, $this->array);
+        return implode($glue ?? '', $this->array);
     }
 
     /**
-     * @inheritDoc
+     * @throws \UnderflowException if the sequence is empty.
+     *
+     * @psalm-return TValue
      */
     public function last()
     {
@@ -157,7 +179,9 @@ trait GenericSequence
     }
 
     /**
-     * @inheritDoc
+     * @template TNewValue
+     * @psalm-param callable(TValue): TNewValue $callback
+     * @psalm-return Sequence<TNewValue>
      */
     public function map(callable $callback): Sequence
     {
@@ -165,7 +189,8 @@ trait GenericSequence
     }
 
     /**
-     * @inheritDoc
+     * @throws \UnderflowException if the sequence is empty.
+     * @psalm-return TValue
      */
     public function pop()
     {
@@ -180,7 +205,7 @@ trait GenericSequence
     }
 
     /**
-     * @inheritDoc
+     * @psalm-param TValue ...$values
      */
     public function push(...$values)
     {
@@ -192,7 +217,10 @@ trait GenericSequence
     }
 
     /**
-     * @inheritDoc
+     * @template TCarry
+     * @psalm-param callable(TCarry, TValue): TCarry $callback
+     * @psalm-param TCarry $initial
+     * @psalm-return TCarry
      */
     public function reduce(callable $callback, $initial = null)
     {
@@ -200,7 +228,9 @@ trait GenericSequence
     }
 
     /**
-     * @inheritDoc
+     * @throws \OutOfRangeException if the index is not in the range [0, size-1]
+     *
+     * @psalm-return TValue
      */
     public function remove(int $index)
     {
@@ -215,7 +245,7 @@ trait GenericSequence
     }
 
     /**
-     * @inheritDoc
+     *
      */
     public function reverse()
     {
@@ -223,7 +253,7 @@ trait GenericSequence
     }
 
     /**
-     * @inheritDoc
+     * @psalm-return Sequence<TValue>
      */
     public function reversed(): Sequence
     {
@@ -245,7 +275,7 @@ trait GenericSequence
     }
 
     /**
-     * @inheritDoc
+     *
      */
     public function rotate(int $rotations)
     {
@@ -255,7 +285,9 @@ trait GenericSequence
     }
 
     /**
-     * @inheritDoc
+     * @throws \OutOfRangeException if the index is not in the range [0, size-1]
+     *
+     * @psalm-param TValue $value
      */
     public function set(int $index, $value)
     {
@@ -267,7 +299,9 @@ trait GenericSequence
     }
 
     /**
-     * @inheritDoc
+     * @throws \UnderflowException if the sequence was empty.
+     *
+     * @psalm-return TValue
      */
     public function shift()
     {
@@ -282,7 +316,7 @@ trait GenericSequence
     }
 
     /**
-     * @inheritDoc
+     * @psalm-return Sequence<TValue>
      */
     public function slice(int $offset, int $length = null): Sequence
     {
@@ -294,7 +328,7 @@ trait GenericSequence
     }
 
     /**
-     * @inheritDoc
+     * @psalm-param (callable(TValue, TValue): int)|null $comparator
      */
     public function sort(callable $comparator = null)
     {
@@ -306,7 +340,8 @@ trait GenericSequence
     }
 
     /**
-     * @inheritDoc
+     * @psalm-param (callable(TValue, TValue): int)|null $comparator
+     * @psalm-return Sequence<TValue>
      */
     public function sorted(callable $comparator = null): Sequence
     {
@@ -316,7 +351,7 @@ trait GenericSequence
     }
 
     /**
-     * @inheritDoc
+     * @return int|float
      */
     public function sum()
     {
@@ -324,7 +359,7 @@ trait GenericSequence
     }
 
     /**
-     * @inheritDoc
+     * @psalm-param TValue ...$values
      */
     public function unshift(...$values)
     {
@@ -345,6 +380,7 @@ trait GenericSequence
     /**
      *
      */
+    #[\ReturnTypeWillChange]
     public function getIterator()
     {
         foreach ($this->array as $value) {
@@ -364,6 +400,7 @@ trait GenericSequence
     /**
      * @inheritdoc
      */
+    #[\ReturnTypeWillChange]
     public function offsetSet($offset, $value)
     {
         if ($offset === null) {
@@ -376,6 +413,7 @@ trait GenericSequence
     /**
      * @inheritdoc
      */
+    #[\ReturnTypeWillChange]
     public function &offsetGet($offset)
     {
         if ( ! $this->validIndex($offset)) {
@@ -388,6 +426,7 @@ trait GenericSequence
     /**
      * @inheritdoc
      */
+    #[\ReturnTypeWillChange]
     public function offsetUnset($offset)
     {
         if (is_integer($offset) && $this->validIndex($offset)) {
@@ -398,6 +437,7 @@ trait GenericSequence
     /**
      * @inheritdoc
      */
+    #[\ReturnTypeWillChange]
     public function offsetExists($offset)
     {
         return is_integer($offset)

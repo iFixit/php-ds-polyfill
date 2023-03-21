@@ -18,10 +18,7 @@ final class PriorityQueue implements Collection
     use Traits\GenericCollection;
     use Traits\SquaredCapacity;
 
-    /**
-     * @var int
-     */
-    const MIN_CAPACITY = 8;
+    public const MIN_CAPACITY = 8;
 
     /**
      * @var array<int, PriorityNode<TValue>>
@@ -123,7 +120,7 @@ final class PriorityQueue implements Collection
      */
     private function parent(int $index): int
     {
-        return ($index - 1) / 2;
+        return (int) (($index - 1) / 2);
     }
 
     /**
@@ -294,6 +291,7 @@ final class PriorityQueue implements Collection
     /**
      * @inheritDoc
      */
+    #[\ReturnTypeWillChange]
     public function getIterator()
     {
         while ( ! $this->isEmpty()) {

@@ -12,12 +12,14 @@ use OutOfRangeException;
  *
  * @template TValue
  * @implements Collection<int, TValue>
+ * @implements \ArrayAccess<int, TValue>
+ * @template-use Traits\GenericCollection<int, TValue>
  */
 final class Set implements Collection, \ArrayAccess 
 {
     use Traits\GenericCollection;
 
-    const MIN_CAPACITY = Map::MIN_CAPACITY;
+    public const MIN_CAPACITY = Map::MIN_CAPACITY;
 
     /**
      * @var Map internal map to store the values.
@@ -243,7 +245,7 @@ final class Set implements Collection, \ArrayAccess
      */
     public function join(string $glue = null): string
     {
-        return implode($glue, $this->toArray());
+        return implode($glue ?? '', $this->toArray());
     }
 
     /**
@@ -256,6 +258,22 @@ final class Set implements Collection, \ArrayAccess
     public function last()
     {
         return $this->table->last()->key;
+    }
+
+    /**
+     * Returns a new set using the results of applying a callback to each
+     * value.
+     *
+     * @param callable $callback
+     *
+     * @return Set
+     *
+     * @template TNewValue
+     * @psalm-param callable(TValue): TNewValue $callback
+     * @psalm-return Set<TNewValue>
+     */
+    public function map(callable $callback) {
+        return new self(array_map($callback, $this->toArray()));
     }
 
     /**
@@ -458,6 +476,7 @@ final class Set implements Collection, \ArrayAccess
     /**
      * Get iterator
      */
+    #[\ReturnTypeWillChange]
     public function getIterator()
     {
         foreach ($this->table as $key => $value) {
@@ -470,6 +489,7 @@ final class Set implements Collection, \ArrayAccess
      *
      * @throws OutOfBoundsException
      */
+    #[\ReturnTypeWillChange]
     public function offsetSet($offset, $value)
     {
         if ($offset === null) {
@@ -482,6 +502,7 @@ final class Set implements Collection, \ArrayAccess
     /**
      * @inheritdoc
      */
+    #[\ReturnTypeWillChange]
     public function offsetGet($offset)
     {
         return $this->table->skip($offset)->key;
@@ -492,6 +513,7 @@ final class Set implements Collection, \ArrayAccess
      *
      * @throws Error
      */
+    #[\ReturnTypeWillChange]
     public function offsetExists($offset)
     {
         throw new Error();
@@ -502,6 +524,7 @@ final class Set implements Collection, \ArrayAccess
      *
      * @throws Error
      */
+    #[\ReturnTypeWillChange]
     public function offsetUnset($offset)
     {
         throw new Error();
