@@ -10,6 +10,7 @@
     <testsuites>
         <testsuite name="DS Tests">
             <directory>vendor/php-ds/tests/tests</directory>
+            <directory>tests</directory>
         </testsuite>
     </testsuites>
     <coverage>
