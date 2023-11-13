@@ -17,6 +17,7 @@ jobs:
         php-version:
           - "8.0"
           - "8.1"
+          - "8.2"
         dependencies:
           - "highest"
 
@@ -37,6 +38,7 @@ jobs:
         uses: "ramsey/composer-install@v2"
         with:
           dependency-versions: "${{ matrix.dependencies }}"
+          composer-options: "--ignore-platform-req=php+"
         env:
           COMPOSER_AUTH: '{"github-oauth": {"github.com": "${{ secrets.GITHUB_TOKEN }}"}}'
 
