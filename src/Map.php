@@ -241,7 +241,9 @@ final class Map implements Collection, \ArrayAccess
             // Take a hash of the serialized value to avoid PHP having to do a
             // long string comparison on each lookup (we already check the
             // actual array values for equality ourselves).
-            return md5(serialize($key));
+
+            // Sometimes serializing the whole array fails because the array contains anonymous classes or closures.
+            return md5(serialize(array_map(fn($val) => $this->getHash($val), $key)));
         } else if (is_float($key)) {
             if ($key === -0.0) {
                 return 0;
